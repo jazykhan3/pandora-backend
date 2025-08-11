@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import { initializeTables } from './db/tables';
 import authRoutes from './routes/auth';
 import orgRoutes from './routes/orgs';
+import testRoutes from './routes/test';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -14,7 +15,7 @@ const port = process.env.PORT || 5000;
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
 }));
 
@@ -31,6 +32,7 @@ initializeTables();
 // Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/orgs', orgRoutes);
+app.use('/api/v1/test', testRoutes);
 
 app.get('/', (req, res) => {
   res.json({ 
@@ -39,7 +41,8 @@ app.get('/', (req, res) => {
     status: 'running',
     endpoints: {
       auth: '/api/v1/auth',
-      organizations: '/api/v1/orgs'
+      organizations: '/api/v1/orgs',
+      test: '/api/v1/test'
     }
   });
 });
@@ -58,5 +61,5 @@ app.use((req, res) => {
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
 });

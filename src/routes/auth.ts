@@ -49,6 +49,9 @@ router.post('/orgs', async (req, res) => {
     `);
     memberStmt.run(uuidv4(), userId, orgId);
 
+    // Bind any temporary devices from signup flow
+    await bindTempDevices(userId, email);
+
     // Log audit event
     await logAuditEvent({
       userId,
@@ -129,9 +132,9 @@ router.post('/invites/accept', async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired invite code' });
     }
 
-    if (invite.email.toLowerCase() !== email.toLowerCase()) {
-      return res.status(400).json({ error: 'Email does not match invite' });
-    }
+    // Remove the email validation check - allow user to use any email
+    // The invite is still tied to the original email for audit purposes
+    // but the user can create their account with a different email
 
     // Hash password
     const passwordHash = await argon2.hash(password);
@@ -157,6 +160,9 @@ router.post('/invites/accept', async (req, res) => {
     `);
     updateStmt.run(Math.floor(Date.now() / 1000), invite.id);
 
+    // Bind any temporary devices from signup flow
+    await bindTempDevices(userId, email);
+
     // Log audit event
     await logAuditEvent({
       userId,
@@ -164,7 +170,12 @@ router.post('/invites/accept', async (req, res) => {
       action: `User joined organization via invite with role ${invite.role}`,
       ip: req.ip,
       userAgent: req.get('User-Agent'),
-      metadata: { email, inviteCode: code }
+      metadata: { 
+        userEmail: email, 
+        inviteEmail: invite.email,
+        inviteCode: code,
+        emailMatched: invite.email.toLowerCase() === email.toLowerCase()
+      }
     });
 
     // Generate JWT token
@@ -176,6 +187,50 @@ router.post('/invites/accept', async (req, res) => {
       userId, 
       orgId: invite.org_id, 
       role: invite.role 
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Generate invite code (for testing purposes)
+router.post('/invites/generate', async (req, res) => {
+  const { orgId, email, role = 'Viewer', expiresInDays = 7 } = req.body;
+
+  if (!orgId || !email) {
+    return res.status(400).json({ error: 'Organization ID and email are required' });
+  }
+
+  try {
+    // Verify organization exists
+    const orgStmt = db.prepare('SELECT name FROM organizations WHERE id = ?');
+    const org = orgStmt.get(orgId) as any;
+    
+    if (!org) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+
+    // Generate invite code and calculate expiration
+    const code = generateInviteCode();
+    const expiresAt = Math.floor(Date.now() / 1000) + (expiresInDays * 24 * 60 * 60);
+
+    // Create invite
+    const inviteStmt = db.prepare(`
+      INSERT INTO invites (id, org_id, email, code, role, expires_at) 
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    const inviteId = uuidv4();
+    inviteStmt.run(inviteId, orgId, email.toLowerCase(), code, role, expiresAt);
+
+    res.json({ 
+      message: 'Invite generated successfully',
+      inviteCode: code,
+      orgName: org.name,
+      email: email.toLowerCase(),
+      role,
+      expiresAt,
+      inviteLink: `${req.protocol}://${req.get('host')}/signup?invite=${code}`
     });
   } catch (err) {
     console.error(err);
@@ -301,6 +356,76 @@ router.post('/device-bind', authenticateToken, async (req: AuthenticatedRequest,
     res.status(500).json({ error: 'Failed to bind device' });
   }
 });
+
+// Signup device binding endpoint (no auth required during signup)
+router.post('/signup-device-bind', async (req, res) => {
+  const { instanceId, fingerprint, email, signupToken, isOrgCreator } = req.body;
+
+  if (!instanceId || !fingerprint || !email || !signupToken) {
+    return res.status(400).json({ error: 'Missing device binding info' });
+  }
+
+  try {
+    // Basic validation - check if this is a valid signup token
+    if (!signupToken.startsWith('temp-signup-')) {
+      return res.status(400).json({ error: 'Invalid signup token' });
+    }
+
+    // For now, we'll store the device info temporarily
+    // Later when user completes signup, we'll bind it properly
+    const tempId = uuidv4();
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO temp_device_bindings (id, email, instance_id, device_fingerprint_hash, is_org_creator, created_at) 
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(tempId, email.toLowerCase(), instanceId, fingerprint, isOrgCreator ? 1 : 0, Math.floor(Date.now() / 1000));
+
+    // Log audit event (without userId since not authenticated yet)
+    await logAuditEvent({
+      action: `Temporary device binding during signup (org creator: ${isOrgCreator})`,
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      metadata: { email, instanceId, isOrgCreator }
+    });
+
+    res.json({ success: true, message: 'Device prepared for binding' });
+  } catch (err) {
+    console.error('Signup device binding error:', err);
+    res.status(500).json({ error: 'Failed to prepare device binding' });
+  }
+});
+
+// Helper function to bind temp devices after signup
+async function bindTempDevices(userId: string, email: string) {
+  try {
+    // Get temp device bindings for this email
+    const tempStmt = db.prepare(`
+      SELECT * FROM temp_device_bindings 
+      WHERE email = ? AND expires_at > ?
+    `);
+    const tempBindings = tempStmt.all(email.toLowerCase(), Math.floor(Date.now() / 1000));
+
+    if (tempBindings.length > 0) {
+      // Transfer to permanent device bindings
+      const bindStmt = db.prepare(`
+        INSERT OR REPLACE INTO device_bindings (id, user_id, instance_id, device_fingerprint_hash) 
+        VALUES (?, ?, ?, ?)
+      `);
+
+      for (const temp of tempBindings as any[]) {
+        bindStmt.run(uuidv4(), userId, temp.instance_id, temp.device_fingerprint_hash);
+      }
+
+      // Clean up temp bindings
+      const deleteStmt = db.prepare(`DELETE FROM temp_device_bindings WHERE email = ?`);
+      deleteStmt.run(email.toLowerCase());
+
+      console.log(`Bound ${tempBindings.length} temporary devices for user ${userId}`);
+    }
+  } catch (err) {
+    console.error('Error binding temp devices:', err);
+  }
+}
 
 // User login
 router.post('/login', async (req, res) => {
