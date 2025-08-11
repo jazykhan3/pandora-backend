@@ -1,0 +1,35 @@
+{
+  "name": "pandora-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {
+    "build": "npx tsc",
+    "start": "node src/index.ts",
+    "dev": "concurrently \"npx tsc --watch\" \"nodemon dist/index.js\"",
+    "migrate": "node ./dist/migrate.js || echo 'Run migrations manually with sqlite3'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jazykhan3/pandora-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jazykhan3/pandora-backend/issues"
+  },
+  "homepage": "https://github.com/jazykhan3/pandora-backend#readme",
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.2.1",
+    "concurrently": "^9.2.0",
+    "nodemon": "^3.1.10",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "express": "^5.1.0"
+  }
+}
