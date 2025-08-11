@@ -5,6 +5,58 @@ import db from '../db';
 
 const router = express.Router();
 
+// Deployment test endpoints
+router.get('/cors-test', (req, res) => {
+  res.json({ 
+    message: 'CORS is working correctly',
+    origin: req.get('Origin'),
+    timestamp: new Date().toISOString()
+  });
+});
+
+router.get('/db-connection', async (req, res) => {
+  try {
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+      // Test Vercel Postgres connection
+      const { sql } = require('@vercel/postgres');
+      const result = await sql`SELECT 1 as test`;
+      res.json({
+        status: 'healthy',
+        database: 'vercel-postgres',
+        connection: true,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      // Test SQLite connection
+      const connectionTest = db.prepare('SELECT 1 as test').get() as { test: number };
+      res.json({
+        status: 'healthy',
+        database: 'sqlite',
+        connection: connectionTest.test === 1,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      database: process.env.VERCEL ? 'vercel-postgres' : 'sqlite',
+      message: (error as Error).message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+router.get('/env-check', (req, res) => {
+  res.json({
+    nodeEnv: process.env.NODE_ENV,
+    isVercel: !!process.env.VERCEL,
+    port: process.env.PORT,
+    frontendUrl: process.env.FRONTEND_URL,
+    hasJwtSecret: !!process.env.JWT_SECRET,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // GET /test/db - Basic database health check
 router.get('/db', (req, res) => {
   try {

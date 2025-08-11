@@ -4,7 +4,7 @@ console.log("Welcome to Pandaura Backend");
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { initializeTables } from './db/tables';
+import { initializeTables } from './db/database-adapter';
 import authRoutes from './routes/auth';
 import orgRoutes from './routes/orgs';
 import testRoutes from './routes/test';
@@ -27,7 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', true);
 
 // Initialize database tables
-initializeTables();
+initializeTables().catch(console.error);
 
 // Routes
 app.use('/api/v1/auth', authRoutes);
