@@ -1,11 +1,14 @@
 // src/db/tables/index.ts
 
-import { createUsersTable } from './users';
+import { createUsersTable, createOrganizationsTable, createTeamMembersTable, createInvitesTable } from './users';
 import { createDeviceBindingsTable } from './deviceBindings';
-import { createActivityLogTable } from './activityLog';
+import { createAuditLogsTable } from './activityLog';
 
 export function initializeTables() {
+  createOrganizationsTable();
   createUsersTable();
+  createTeamMembersTable();
+  createInvitesTable();
   createDeviceBindingsTable();
-  createActivityLogTable();
+  createAuditLogsTable();
 }

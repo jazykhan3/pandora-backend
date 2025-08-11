@@ -31,6 +31,25 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "argon2": "^0.31.2",
+    "jsonwebtoken": "^9.0.2",
+    "speakeasy": "^2.0.0",
+    "uuid": "^9.0.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.2.1",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/speakeasy": "^2.0.10",
+    "@types/uuid": "^9.0.7",
+    "@types/cors": "^2.8.17",
+    "concurrently": "^9.2.0",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
   }
 }
