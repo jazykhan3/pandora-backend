@@ -90,7 +90,7 @@ router.get('/invites/validate', async (req, res) => {
       JOIN organizations o ON i.org_id = o.id
       WHERE i.code = ? AND i.expires_at > ? AND i.used_at IS NULL
     `);
-    const invite = stmt.get(code, Math.floor(Date.now() / 1000));
+    const invite = stmt.get(code, Math.floor(Date.now() / 1000)) as any;
 
     if (!invite) {
       return res.status(400).json({ error: 'Invalid or expired invite code' });
@@ -123,7 +123,7 @@ router.post('/invites/accept', async (req, res) => {
       SELECT * FROM invites 
       WHERE code = ? AND expires_at > ? AND used_at IS NULL
     `);
-    const invite = inviteStmt.get(code, Math.floor(Date.now() / 1000));
+    const invite = inviteStmt.get(code, Math.floor(Date.now() / 1000)) as any;
 
     if (!invite) {
       return res.status(400).json({ error: 'Invalid or expired invite code' });
@@ -315,7 +315,7 @@ router.post('/login', async (req, res) => {
       SELECT * FROM users 
       WHERE email = ? AND is_active = 1
     `);
-    const user = userStmt.get(email.toLowerCase());
+    const user = userStmt.get(email.toLowerCase()) as any;
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -370,7 +370,7 @@ router.post('/login', async (req, res) => {
       JOIN organizations o ON tm.org_id = o.id
       WHERE tm.user_id = ?
     `);
-    const userOrgs = orgsStmt.all(user.id);
+    const userOrgs = orgsStmt.all(user.id) as any[];
 
     if (userOrgs.length === 0) {
       return res.status(403).json({ error: 'No organization membership found' });

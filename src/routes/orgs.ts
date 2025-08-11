@@ -212,7 +212,7 @@ router.put('/:orgId/members/:userId/role', rbacMiddleware('Admin'), async (req: 
 
     // Get user info for audit log
     const userStmt = db.prepare(`SELECT full_name, email FROM users WHERE id = ?`);
-    const user = userStmt.get(userId);
+    const user = userStmt.get(userId) as any;
 
     // Log audit event
     await logAuditEvent({
@@ -248,7 +248,7 @@ router.delete('/:orgId/members/:userId', rbacMiddleware('Admin'), async (req: Au
       JOIN team_members tm ON u.id = tm.user_id
       WHERE u.id = ? AND tm.org_id = ?
     `);
-    const user = userStmt.get(userId, orgId);
+    const user = userStmt.get(userId, orgId) as any;
 
     if (!user) {
       return res.status(404).json({ error: 'Team member not found' });
@@ -347,14 +347,14 @@ router.get('/:orgId/audit-logs', rbacMiddleware('Admin'), async (req: Authentica
       ORDER BY al.created_at DESC
       LIMIT ? OFFSET ?
     `);
-    const logs = logsStmt.all(...params, Number(limit), offset);
+    const logs = logsStmt.all(...params, Number(limit), offset) as any[];
 
     res.json({
       page: Number(page),
       limit: Number(limit),
       totalCount,
       totalPages: Math.ceil(totalCount / Number(limit)),
-      logs: logs.map(log => ({
+      logs: logs.map((log: any) => ({
         ...log,
         metadata: log.metadata ? JSON.parse(log.metadata) : null,
         created_at: new Date(log.created_at * 1000).toISOString()

@@ -29,5 +29,5 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
 }
 
 export function generateToken(payload: any, expiresIn: string = '8h'): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn } as jwt.SignOptions);
 }
